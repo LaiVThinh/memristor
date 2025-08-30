@@ -12,6 +12,7 @@ This repository contains simulations of memristor devices and neural network exp
    - Include the following columns:
      - Current (`I`) — for example `/I9/p (A)`
      - Voltage (`V`) — for example `/net1 (V)`
+     - Time (`s`) — for example `time (s)`
 
 3. **Run Jupyter Notebook**
    - Open the notebook file `Hystheresis.ipynb` files.
