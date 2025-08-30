@@ -1,0 +1,66 @@
+`include "constants.vams"
+`include "disciplines.vams"
+
+// Define unit/discipline for w_position output
+nature distance
+  access = Metr;
+  units = "m";
+  abstol = 0.01n;
+endnature
+
+discipline Distance
+  potential distance;
+enddiscipline
+
+module memristor_linear_biolek(p, n, w_position);
+  inout p, n;
+  output w_position;
+  electrical p, n;
+  Distance w_position;
+
+  // ==== Parameters ====
+  parameter integer model = 0;                // 0 = Linear Ion Drift
+  parameter integer window_type = 2;          // 2 = Biolek Window
+  parameter real Ron = 100 from (0:inf);      // ON resistance (Ω)
+  parameter real Roff = 2e5 from (0:inf);     // OFF resistance (Ω)
+  parameter real D = 10e-9 from (0:inf);      // Device thickness (m)
+  parameter real uv = 10e-14 from (0:inf);    // Ion mobility (m²/V·s)
+  parameter real p_coeff = 2 from (0:inf);    // Biolek exponent
+  parameter real init_state = 0.5 from [0:1]; // Initial state [0,1]
+  parameter real W_multiplied = 1e9;          // w scaling factor (nm)
+  parameter real p_window_noise = 1e-18;      // Boundary noise (m)
+
+  // ==== Internal Variables ====
+  real w, dw_dt, R, Vdev, Idev, win;
+  integer stpVal;
+
+  analog begin
+    // Initialize state variable
+    @(initial_step) w = init_state * D;
+
+    // Get terminal values
+    Vdev = V(p, n);
+    Idev = I(p, n);
+
+    // Biolek Window Function
+    stpVal = (Idev <= 0.0) ? 1 : 0;
+    win = 1.0 - pow((w/D - stpVal), p_coeff);
+
+    // Linear Ion Drift Dynamics
+    dw_dt = (uv * Ron / D) * Idev * win;
+    w = idt(dw_dt, w);
+
+    // Enforce Physical Boundaries
+    w = max(p_window_noise, min(D - p_window_noise, w));
+
+    // Calculate Memristance
+    R = Ron * (w/D) + Roff * (1.0 - w/D);
+
+    // I-V Relationship
+    I(p, n) <+ V(p, n)/R;
+
+    // State Variable Output (in nanometers)
+    Metr(w_position) <+ w * W_multiplied;
+  end
+endmodule
+
